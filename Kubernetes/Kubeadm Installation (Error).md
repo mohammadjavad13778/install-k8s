@@ -1,26 +1,24 @@
 Table of Content
+
 - [[#Step 0 : Configure VMs|Step 0 : Configure VMs]]
 	- [[#Step 0 : Configure VMs#Part 1 : Disable swap|Part 1 : Disable swap]]
 	- [[#Step 0 : Configure VMs#Part 2 : Change Host Name|Part 2 : Change Host Name]]
 	- [[#Step 0 : Configure VMs#Part 3 : Edit `netplan` config|Part 3 : Edit `netplan` config]]
-- [[#Step 1 :  Set up the IPV4 bridge on all nodes|Step 1 :  Set up the IPV4 bridge on all nodes]]
-- [[#Step 2 : Installing Containerd|Step 2 : Installing Containerd]]
-- [[#Step 3 : Installing Docker|Step 3 : Installing Docker]]
-- [[#Step 4 : Install kubelet, kubeadm, and kubectl|Step 4 : Install kubelet, kubeadm, and kubectl]]
-	- [[#Step 4 : Install kubelet, kubeadm, and kubectl#Part 1 : Updating `apt` Packages|Part 1 : Updating `apt` Packages]]
-	- [[#Step 4 : Install kubelet, kubeadm, and kubectl#Part 2 : Download the public signing key for the Kubernetes package repositories|Part 2 : Download the public signing key for the Kubernetes package repositories]]
-	- [[#Step 4 : Install kubelet, kubeadm, and kubectl#Part 3 : Add the appropriate Kubernetes `apt` repository.|Part 3 : Add the appropriate Kubernetes `apt` repository.]]
-	- [[#Step 4 : Install kubelet, kubeadm, and kubectl#Part 4 : Update the `apt` package index, install kubelet, kubeadm and kubectl, and pin their version|Part 4 : Update the `apt` package index, install kubelet, kubeadm and kubectl, and pin their version]]
+- [[#Step 1 : Installing Docker|Step 1 : Installing Docker]]
+- [[#Step 2 :  Set up the IPV4 bridge on all nodes|Step 2 :  Set up the IPV4 bridge on all nodes]]
+- [[#Step 3 : Install kubelet, kubeadm, and kubectl|Step 3 : Install kubelet, kubeadm, and kubectl]]
+	- [[#Step 3 : Install kubelet, kubeadm, and kubectl#Part 1 : Updating `apt` Packages|Part 1 : Updating `apt` Packages]]
+	- [[#Step 3 : Install kubelet, kubeadm, and kubectl#Part 2 : Download the public signing key for the Kubernetes package repositories|Part 2 : Download the public signing key for the Kubernetes package repositories]]
+	- [[#Step 3 : Install kubelet, kubeadm, and kubectl#Part 3 : Add the appropriate Kubernetes `apt` repository.|Part 3 : Add the appropriate Kubernetes `apt` repository.]]
+	- [[#Step 3 : Install kubelet, kubeadm, and kubectl#Part 4 : Update the `apt` package index, install kubelet, kubeadm and kubectl, and pin their version|Part 4 : Update the `apt` package index, install kubelet, kubeadm and kubectl, and pin their version]]
 - [[#Step 4 : Configuring `containerd.toml`|Step 4 : Configuring `containerd.toml`]]
 - [[#Step 5 : Initialize the Kubernetes cluster on the master node|Step 5 : Initialize the Kubernetes cluster on the master node]]
-- [[#Step 6 : Installing Flannel|Step 6 : Installing Flannel]]
-- [[#Step 7 : Join Worker Node to Cluster|Step 7 : Join Worker Node to Cluster]]
-- [[#Step 8 : Verify the cluster and test (Master Node)|Step 8 : Verify the cluster and test (Master Node)]]
-- [[#Step 9 : Deploy test application on cluster (Master Node)|Step 9 : Deploy test application on cluster (Master Node)]]
+
+
 
 
 > [!Warning] Attention
-> In this method , I've used Containerd CRI and the Container Network Interface (CNI) is *Flannel*
+> In this method , I've used Containerd CRI and the Container Network Interface (CNI) is *Calico*
 
 
 ## Step 0 : Configure VMs
@@ -28,7 +26,6 @@ Table of Content
 First , we should have 3 VMs : 1 for Master Node and 2 for Worker Node.
 The OS is Ubuntu 22.04.3 Server LTS.
 I use Bridge Network in Virtual Box with Static IP.
-
 
 ### Part 1 : Disable swap
 
@@ -41,14 +38,6 @@ sudo swapoff -a
 
 sudo sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
 ```
-
-To check if the swap is off , we can execute this command :
-
-```bash
-free -h
-```
-
-If Swap has 0 value , it will be off correctly !
 
 ### Part 2 : Change Host Name
 
@@ -69,66 +58,61 @@ sudo hostnamectl set-hostname worker01
 sudo hostnamectl set-hostname worker02
 ```
 
+<div style="page-break-after: always;"></div>
 
 ### Part 3 : Edit `netplan` config
 
 Then, edit the `/etc/netplan/00-**.yaml` config .
-<div style="page-break-after: always;"></div>
-
 
 Mater Node
 ```YAML
 # This is the network config written by 'subiquity'
 network:
+  version: 2
+  renderer: networkd
   ethernets:
     enp0s3:
       addresses:
-        - 192.168.1.180/24
+        - 192.168.1.170/24
       routes:
         - to: default
           via: 192.168.1.1
       nameservers:
         addresses: [10.202.10.202, 10.202.10.102]
-  version: 2
-
 ```
-
-<div style="page-break-after: always;"></div>
-
 
 Worker 01
 ```YAML
 # This is the network config written by 'subiquity'
 network:
+  version: 2
+  renderer: networkd
   ethernets:
     enp0s3:
       addresses:
-        - 192.168.1.181/24
+        - 192.168.1.171/24
       routes:
         - to: default
           via: 192.168.1.1
       nameservers:
         addresses: [10.202.10.202, 10.202.10.102]
-  version: 2
-
 ```
-<div style="page-break-after: always;"></div>
-
 
 Worker 02 
 ```YAML
 # This is the network config written by 'subiquity'
 network:
+  version: 2
+  renderer: networkd
   ethernets:
     enp0s3:
       addresses:
-        - 192.168.1.182/24
+        - 192.168.1.172/24
       routes:
         - to: default
           via: 192.168.1.1
       nameservers:
         addresses: [10.202.10.202, 10.202.10.102]
-  version: 2
 ```
 
 Then we should apply this config .
@@ -139,9 +123,9 @@ sudo netplan apply
 
 So the VMs IP is like this :
 ```md 
-192.168.1.180 master-node
-192.168.1.181 worker01
-192.168.1.182 worker02
+192.168.1.170 master-node
+192.168.1.171 worker01
+192.168.1.172 worker02
 ```
 
 So in `master-node` we should edit `/etc/hosts` like this :
@@ -150,15 +134,42 @@ So in `master-node` we should edit `/etc/hosts` like this :
 127.0.0.1 localhost
 127.0.1.1 master-node
 
-192.168.1.180 master-node
-192.168.1.181 worker01
-192.168.1.182 worker02
+192.168.1.170 master-node
+192.168.1.171 worker01
+192.168.1.172 worker02
 ```
 
 <div style="page-break-after: always;"></div>
 
+## Step 1 : Installing Docker 
 
-## Step 1 :  Set up the IPV4 bridge on all nodes
+First we should install docker . So we have [Official Docker Docs](https://docs.docker.com/engine/install/ubuntu/)
+
+```bash
+# Add Docker's official GPG key:
+sudo apt-get update
+sudo apt-get install ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+```
+
+```bash
+# Add the repository to Apt sources:
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt-get update
+```
+
+Then install docker :
+```bash
+sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```
+
+
+## Step 2 :  Set up the IPV4 bridge on all nodes
 
 To configure the IPV4 bridge on all nodes, execute the following commands on each node.
 
@@ -190,25 +201,7 @@ sudo sysctl --system
 
 <div style="page-break-after: always;"></div>
 
-
-## Step 2 : Installing Containerd
-
-First we should install `containerd` :
-
-```bash
-sudo apt install containerd -y
-```
-
-## Step 3 : Installing Docker 
-
-Now  we should install `docker.io` . So we have
-
-```bash
-sudo apt install docker.io -y
-```
-
-
-## Step 4 : Install kubelet, kubeadm, and kubectl
+## Step 3 : Install kubelet, kubeadm, and kubectl
 
 Let’s install kubelet, kubeadm, and kubectl on each node to create a Kubernetes cluster. They play an important role in managing a Kubernetes cluster.
 
@@ -223,7 +216,6 @@ Before installing them, you must update the package index with the 
 
 These instructions are for Kubernetes 1.29
 
-
 ### Part 1 : Updating `apt` Packages
 
 ```bash
@@ -237,18 +229,15 @@ sudo apt-get install -y apt-transport-https ca-certificates curl gpg
 ```bash
 # If the folder `/etc/apt/keyrings` does not exist, it should be created before the curl command, read the note below.
 # sudo mkdir -p -m 755 /etc/apt/keyrings
-curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key \
-| sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 ```
 
 ### Part 3 : Add the appropriate Kubernetes `apt` repository.
 
 ```bash
 # This overwrites any existing configuration in /etc/apt/sources.list.d/kubernetes.list
-echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] \ https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
 ```
-
-<div style="page-break-after: always;"></div>
 
 
 ### Part 4 : Update the `apt` package index, install kubelet, kubeadm and kubectl, and pin their version
@@ -259,7 +248,7 @@ sudo apt-get install -y kubelet kubeadm kubectl
 sudo apt-mark hold kubelet kubeadm kubectl
 ```
 
-
+<div style="page-break-after: always;"></div>
 
 ## Step 4 : Configuring `containerd.toml`
 
@@ -296,9 +285,6 @@ sudo systemctl restart kubelet
 ```
 
 
->[!WARNING]
->All these Steps from 0 to 4 should be done on Master Nodes and Worker Nodes
-
 <div style="page-break-after: always;"></div>
 
 
@@ -313,87 +299,5 @@ sudo kubeadm config images pull
 Next, initialize our master node. The `--pod-network-cidr` flag is setting the IP address range for the pod network.
 
 ```bash
-kubeadm init --cri-socket=unix:///var/run/containerd/containerd.sock \
---control-plane-endpoint "192.168.1.180:6443" \
---pod-network-cidr=10.244.0.0/16 --upload-certs
-```
-
-To manage the cluster, you should configure kubectl on the master node. Create the `.kube` directory in your home folder and copy the cluster's admin configuration to your personal `.kube` directory. Next, change the ownership of the copied configuration file to give the user the permission to use the configuration file to interact with the cluster.
-
-```bash
-mkdir -p $HOME/.kube
-```
-
-```bash
-sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-```
-
-```bash
-sudo chown $(id -u):$(id -g) $HOME/.kube/config
-```
-
-<div style="page-break-after: always;"></div>
-
-
-Alternatively, if you are the root user, you can run:
-
-```bash
-export KUBECONFIG=/etc/kubernetes/admin.conf
-```
-
-
-## Step 6 : Installing Flannel
-
-Flannel is a simple and easy way to configure a layer 3 network fabric designed for Kubernetes. [Flannel GitHub Repo](https://github.com/flannel-io/flannel#deploying-flannel-manually)
-
-For Kubernetes v1.17+:
-
-Deploying Flannel with `kubectl` :
-
-```bash
-kubectl apply -f https://github.com/flannel-io/flannel/releases/\
-latest/download/kube-flannel.yml
-```
-
->[!WARNING]
->If you use custom `podCIDR` (not `10.244.0.0/16`) you first need to download the above manifest and modify the network to match your one.
-
-
-<div style="page-break-after: always;"></div>
-
-
-## Step 7 : Join Worker Node to Cluster
-
-Apply the **`kubeadm` join** command  on worker nodes to connect them to the master node. Prefix the command with **`sudo`**:
-
-```bash
-sudo kubeadm join [master-node-ip]:6443 --token [token] \
---discovery-token-ca-cert-hash sha256:[hash]
-```
-
-For example like this :
-
-```bash
-kubeadm join 192.168.1.180:6443 --token umcrji.6pxewrn6jqfdjbyb \
-        --discovery-token-ca-cert-hash 
-    sha256:77582f0618a37e2fd1fefa4d64b679dc631269961c1f3f6fd2e749e0e3dec82f 
-```
-
-## Step 8 : Verify the cluster and test (Master Node)
-
-Finally, we want to verify whether our cluster is successfully created.
-
-```bash
-kubectl get pods -n kube-system  
-kubectl get nodes
-```
-
-<div style="page-break-after: always;"></div>
-
-
-
-## Step 9 : Deploy test application on cluster (Master Node)
-
-```bash
-kubectl run nginx --image=nginx
+sudo kubeadm init --pod-network-cidr=10.200.0.0/16
 ```
